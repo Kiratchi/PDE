@@ -1,13 +1,13 @@
 clc, clear, clf
 epsSTUD = 54 / 1000;
 
-m = 4;
-n = 100;
+m = 100;
+n = 50;
 T = 1;
 
 
 u_0 = @(x) 0.*x;
-f = @(x,t) - epsSTUD ./ 2 .* ( 2.*t + x.^2 -1 );
+f = @(x,t) - epsSTUD ./ 2 .* ( -2.*t + x.^2 -1 );
 
 u_exact = @(x,t) -epsSTUD ./2 .*(t.*x.^2 -t);
 
@@ -57,9 +57,9 @@ phi = @(x,j) ( (x./h - j + 1) .* ( (j-1 <= x./h) & (x./h <= j) ) ) + ...
 for l = 2:(n+1)
 
     % Calculate F
-    %F = f(x_part', k*l) * 2*h;
+    %F = f(x_part', k*l) *h;
     J = (0:m)';
-    F = integral( @(x) f(x,k*l) .* phi(x,J) , 0,1,'ArrayValued',true)
+    F = integral( @(x) f(x,k*l) .* phi(x,J) , 0,1,'ArrayValued',true);
 
 
     % calculate b
@@ -73,11 +73,23 @@ for l = 2:(n+1)
 
 end
 
+
 zeta = [zeta ; zeros(1,n+1)];
 x_part = [0, x_part];
-plot(x_part, zeta(:,n))
-hold on
-x = linspace(0,1);
-plot(x,u_exact(x,T));
+
+
+[X, T] = meshgrid(x_part, t_part);
+surf(X,T, zeta');
+xlabel('Space (x)');
+ylabel('Time (t)');
+zlabel('Zeta');
+shading interp;
+colorbar;
+
+
+% plot(x_part, zeta(:,n))
+% hold on
+% x = linspace(0,1);
+% plot(x,u_exact(x,T));
 
 disp("Done")
