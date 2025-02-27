@@ -67,7 +67,7 @@ for l=1:max_m
     m=2^l;
     h = (1-0) / (m+1);   
     [zeta_cG1, x_cG1] = cG1(m,f);
-    
+
     x = linspace(0,1,10*m);
     u_cG1 = interp1(x_cG1,zeta_cG1,x ,'linear');
     u_exact = u(x);
@@ -75,7 +75,7 @@ for l=1:max_m
     err(l) = norm(u_cG1-u_exact,Inf);
 end
 
-hl = 1./ (2.^(1:max_m)+1)
+hl = 1./ (2.^(1:max_m)+1);
 loglog(hl,err,'b*-')
 hold on
 loglog ( hl , hl .^1 , 'b--' ,hl , hl .^2 , 'r--') 
@@ -95,7 +95,11 @@ function [u_cG1, x_cG1] = cG1(m,f)
     A = 1/h*A;
 
     % CONSTRUCTING LOAD VECTOR
-    b = h/2 *( f(x_cG1) + f(x_cG1+h) );
+    J = 1:m;
+    phi = @(x,j) ((x./h  - j + 1) .* ( (j-1 <= x./h) & (x./h <=  j) )) + ...
+                 ((-x./h + j + 1) .* ( (j < x./h)    & (x./h < j+1) ));
+    b = integral( @(x) f(x) .* phi(x,J) , 0,1,'ArrayValued',true);
+    
 
 
     % CALCULATING SOLUTION
