@@ -1,7 +1,17 @@
 clc, clear,clf
 [N, T, P] = mygrid(2,1);
-plotmygrid(N,T,P)
-% Only unit square
+[N, T, P] = mygridrefinment(N,T,P);
+[N, T, P] = mygridrefinment(N,T,P);
+plotmygrid(N,T,P) 
+
+
+t = [1 2;
+     4 5; 
+     7 1];
+
+element_stiffness_matrix(t)
+element_mass_matrix(t)
+
 function [N, T, P] = mygrid(G,w)
 epsAir=8.85e-12;
 muAir=4*pi*1e-7;
@@ -56,6 +66,7 @@ end
 
 
 function plotmygrid(N,T,P)
+
 % Looping over triangles
 for i = 1:size(T,1)
     T_i = T(i,:);
@@ -89,12 +100,86 @@ end
 padding = 0.1;
 axis([min(N(:,1))-x_range*padding  max(N(:,1))+x_range*padding ...
     min(N(:,2)) - y_range*padding max(N(:,2)) + y_range*padding])
-ax = gca;  
-ax.XAxisLocation = 'origin'; 
-ax.YAxisLocation = 'origin';  
+ax = gca;
+ax.XAxisLocation = 'origin';
+ax.YAxisLocation = 'origin';
 
 
 end
 
+function [Nr,Tr,Pr] = mygridrefinment(N,T,P)
+Nr = N;
+nn = size(N,1); %nr of nodes
+Tr = [];
+nt = 0;
+Pr = [];
 
+% Each triangle becomes 4
+for j=1:size(T,1)
+    i = T(j,1:3); %Nodes of triangle j
+    n = N(i,:);
 
+    % New nodes
+    n(4,:) = ( n(1,:) + n(2,:) ) / 2;
+    n(5,:) = ( n(1,:) + n(3,:) ) / 2;
+    n(6,:) = ( n(2,:) + n(3,:) ) / 2;
+    
+    % Checking if new nodes actually are new
+    for k = 4:6
+        l = find(Nr(:,1)==n(k,1));
+        m = find(Nr(l,2)==n(k,2));
+        
+        if isempty(m)
+            nn = nn +1;
+            Nr(nn,:) = n(k,:);
+            i(k) = nn;
+        
+        else
+            i(k)=l(m);
+        end
+    end
+    Tr(nt+1,:) = [i(1) i(4) i(5) T(j,4) 0 T(j,6)];
+    Tr(nt+2,:) = [i(4) i(5) i(6) 0 0 0];
+    Tr(nt+3,:) = [i(6) i(4) i(2) 0 T(j,4) T(j,5)];
+    Tr(nt+4,:) = [i(6) i(3) i(5) T(j,5) T(j,6) 0];
+    
+    Pr(nt+1:nt+4) = P(j);
+    nt=nt+4;
+end
+
+end
+
+function S = element_stiffness_matrix(t)
+    x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
+    y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
+
+    J = [x_2-x_1 x_3-x_1;
+        y_2-y_1 y_3-y_1];
+    Jd = (-x_1*y_3 -x_2*y_1 + x_2*y_3 + x_1*y_2 + x_3*y_1 - x_3*y_2);
+    %Jd = abs(x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2))
+    gradphi_local = [-1 -1;
+                      1  0 ;
+                      0  1];
+    gradphi_global = gradphi_local/J;
+
+    S = (gradphi_global*gradphi_global') * Jd /2;
+
+    
+end
+
+function M = element_mass_matrix(t)
+    x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
+    y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
+    
+    Jd = abs(x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2));
+    
+    M = Jd / 24 * [2 1 1;
+                   1 2 1;
+                   1 1 2];
+end
+
+function [u,K,M] = FEHelmhlotz2d(g, N, T, w, P)
+
+ 
+
+end
