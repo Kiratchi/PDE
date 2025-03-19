@@ -50,10 +50,10 @@ clc, clear
 f = @(x) pi^2 * sin(pi*x);
 u =@( x ) sin ( pi * x );
 
-% Showing one solution with m=100
+% Showing one solution with m=10
 m = 10;
 [u_cG1, x_cG1] = cG1(m,f);
-plot(x_cG1, u_cG1)
+plot(x_cG1, u_cG1,'*')
 hold on
 x = linspace(0,1);
 plot(x,sin(pi*x))
@@ -74,7 +74,6 @@ for l=1:max_m
 
     err(l) = norm(u_cG1-u_exact,Inf);
 end
-
 hl = 1./ (2.^(1:max_m)+1);
 loglog(hl,err,'b*-')
 hold on
@@ -100,8 +99,6 @@ function [u_cG1, x_cG1] = cG1(m,f)
                  ((-x./h + j + 1) .* ( (j < x./h)    & (x./h < j+1) ));
     b = integral( @(x) f(x) .* phi(x,J) , 0,1,'ArrayValued',true);
     
-
-
     % CALCULATING SOLUTION
     u_cG1 = A \b';
     u_cG1 = [0;u_cG1;0];
@@ -109,10 +106,9 @@ function [u_cG1, x_cG1] = cG1(m,f)
 end
 
 %% Task 2 -cG(2)
-% Create a program that computes cG(1) and cG(2) FEM approximation
 clc, clear
 f = @(x) pi^2 * sin(pi*x);
-m = 4;
+m = 10;
 
 h = (1-0) / m;
 x = h/2:h/2:(1-h/2);
@@ -120,94 +116,49 @@ x = h/2:h/2:(1-h/2);
 
 % CONSTRUCTING STIFFNESS MATRIX A
 % diag
-d = repmat([-2, 79], 1, m-1);
-d = [d , -2];
+d = repmat([16, 14], 1, m-1);
+d = [d , 16];
 A = diag(d);
 
-% diag +1
-A = A + diag(8*ones(1,2*m-2), 1) + diag(8*ones(1,2*m-2), -1);
+% diag +1 & -1
+A = A + diag(-8*ones(1,2*m-2), 1) + diag(-8*ones(1,2*m-2), -1);
 
-% diag +2
-d = repmat([0, 3], 1, m-2);
+% diag +2 & -2
+d = repmat([0, 1], 1, m-2);
 d = [d , 0];
 A = A + diag(d, 2) + diag(d,-2);
 
-
 A = A / (3*h);
 
+
 % CONSTRUCTING LOAD VECTOR
+J_half = 1:1:m;
+J_whole = 1:1:(m-1);
 
-% The integer approximations are *2
-H = repmat([1 2],1, m-1);
-H = [H, 1];
+phi_half = @(x,j) ( 4*(j-x./h).*(x./h-(j-1)) .* ( (j-1 <= x./h) & (x./h <=  j) ));
+phi_whole = @(x,j) ( 2*(x./h-(j+0.5)).*(x./h-(j+1)) .* ( (j <= x./h) & (x./h <= j+1) )) + ...
+                   ( 2*(x./h-(j-0.5)).*(x./h-(j-1)) .* ( (j-1 <= x./h) & (x./h <= j) ));
 
-b = h.*H .* f(x);
+b_half = integral(@(x) f(x) .* phi_half(x,J_half), 0,1, 'ArrayValued',true);
+b_whole = integral(@(x) f(x) .* phi_whole(x,J_whole), 0,1, 'ArrayValued',true);
+
+b = zeros(2*m-1, 1);
+b(1:2:end) = b_half';
+b(2:2:end) = b_whole';
 
 
 % CALCULATING SOLUTION
-zeta = A \ b';
+zeta = A \ b;
 zeta = [0;zeta;0];
 x = [0,x,1];
 plot(x,zeta)
 
-plot(x,zeta)
+plot(x,zeta,'*')
 hold on
+x = linspace(0,1);
 plot(x,sin(pi*x))
 hold off
 legend("cG(2)", "Exact")
 saveas(gcf,'lab4.task2.cG2.png')
 
 
-
-
-
-
-
-
-%%
-clc; clear; close all;
-
-% Define f(x) (Example: f(x) = sin(pi*x) )
-f = @(x) sin(pi*x);
-
-% Define domain parameters
-N = 10;         % Number of subintervals
-h = 1/N;        % Step size
-x = (0:N) * h;  % Node points
-
-% Compute integral for half-integer basis functions
-I_half = zeros(1, N-1);
-for i = 2:N  % Half-integer indices (i-1/2)
-    x_i = i * h;
-    x_im1 = (i - 1) * h;
-    
-    phi_half = @(x) (4/h^2) * (x - x_im1) .* (x_i - x) .* (x >= x_im1 & x <= x_i);
-    integrand = @(x) f(x) .* phi_half(x);
-    
-    I_half(i-1) = integral(integrand, x_im1, x_i);
-end
-
-% Compute integral for integer basis functions
-I_int = zeros(1, N-1);
-for i = 2:N-1
-    x_i = i * h;
-    x_ip = (i + 1) * h;
-    x_im = (i - 1) * h;
-    
-    x_ihalf_p = (i + 1/2) * h;
-    x_ihalf_m = (i - 1/2) * h;
-    
-    phi_int = @(x) (2/h^2) * ((x - x_ihalf_p) .* (x - x_ip) .* (x >= x_im & x <= x_i)) + ...
-                    (2/h^2) * ((x - x_ihalf_m) .* (x - x_im) .* (x >= x_i & x <= x_ip));
-    
-    integrand = @(x) f(x) .* phi_int(x);
-    
-    I_int(i) = integral(integrand, x_im, x_ip);
-end
-
-% Display results
-disp('Integral values for half-integer basis functions:');
-disp(I_half);
-
-disp('Integral values for integer basis functions:');
-disp(I_int);

@@ -1,5 +1,5 @@
 clc, clear,clf
-[N, T, P] = mygrid(2,1);
+[N, T, P] = mygrid(0,1)
 [N, T, P] = mygridrefinment(N,T,P);
 [N, T, P] = mygridrefinment(N,T,P);
 plotmygrid(N,T,P) 
@@ -149,7 +149,7 @@ end
 
 end
 
-function S = element_stiffness_matrix(t)
+function Se = element_stiffness_matrix(t)
     x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
     y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
 
@@ -167,7 +167,7 @@ function S = element_stiffness_matrix(t)
     
 end
 
-function M = element_mass_matrix(t)
+function Me = element_mass_matrix(t)
     x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
     y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
     
@@ -178,8 +178,62 @@ function M = element_mass_matrix(t)
                    1 1 2];
 end
 
-function [u,K,M] = FEHelmhlotz2d(g, N, T, w, P)
 
- 
 
+function [u,K,M]=FEHelmholtz(g,N,T,w,P);
+%% FE solver for Helmholtz equation
+% g -> Dirichlet BC
+% w -> frequency
+% K -> stiffness matrix
+% M -> mass matrix
+
+n=size(T,1);
+m=size(N,1);
+K=sparse(m,m);
+M=sparse(m,m);
+bn=zeros(m,1);
+
+for i=1:n
+  nodes = T(i,1:3);
+  coords = N(noodes,:)
+
+  % assembly, do not forget the material constants
+  Ke=elementstiffmatrix(coords);
+  Me=P(i)*elementmassmatrix(coords);
+
+  K(nodes, nodes) = K(nodes, nodes) + Ke;
+  M(nodes, nodes) = M(nodes, nodes) + Me;
+
+end
+
+% Find real boundary nodes
+Idx_bnd=[]; % list of nodes on the real boundary
+for j=1:3
+  % Find the triangle whose j−th edge is a boundary edge
+  TriangleBnd=find(T(:,j+3)==1);
+  % Add the nodes of the boundary edges to the boundary nodes list
+  Idx_bnd=[Idx_bnd;T(TriangleBnd,j);T(TriangleBnd,mod(j,3)+1)];
+end
+% reomove duplicate entries
+Idx_bnd=unique(Idx_bnd);
+
+% construction of the RHS
+b=zeros(m,1);                                    
+% apply the function g to the nodes in Idx_bnd
+% and put this on the rhs
+% and adapt the matrices M and K accordingely
+% in order to get u=g on the real boundary
+
+% Solution of the linear system
+u=(-K+w^2*M)\b;
+
+end
+
+for idx = Idx_bnd'
+    b = b - K(:, idx) * g(N(idx,1), N(idx,2)); % Adjust RHS
+    K(idx, :) = 0; K(:, idx) = 0; % Zero out rows & cols
+    K(idx, idx) = 1; % Set diagonal to 1
+    M(idx, :) = 0; M(:, idx) = 0; % Zero out M rows/cols
+    M(idx, idx) = 1; % Preserve solvability
+    b(idx) = g(N(idx,1), N(idx,2)); % Set known boundary values
 end
