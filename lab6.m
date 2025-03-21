@@ -1,16 +1,31 @@
 clc, clear,clf
-[N, T, P] = mygrid(0,1)
+
+% Solution on square for easy problem
+[N, T, P] = mygrid(0,1);
 [N, T, P] = mygridrefinment(N,T,P);
 [N, T, P] = mygridrefinment(N,T,P);
-plotmygrid(N,T,P) 
+w = 0;
+g = @(x,y) x + y;
+[u,S,M] = FEHelmholtz(g,N,T,w,P);
+PlotSolutionHelmoltz(u,N,T);
+saveas(gcf,'lab6.exact.png')
 
 
-t = [1 2;
-     4 5; 
-     7 1];
+% Solution in microwave with chicken 
+clf
+[N, T, P] = mygrid(2,1);
+[N, T, P] = mygridrefinment(N,T,P);
+[N, T, P] = mygridrefinment(N,T,P);
+plotmygrid(N,T,P)
+saveas(gcf,'lab6.chickenshape.png')
+w = 2*pi*2.45*10^9;
+g= inline ('100*( x ==0.5 & 0.1 <=y & 0.2 >=y)','x','y');
+[u,S,M] = FEHelmholtz(g,N,T,w,P);
+PlotSolutionHelmoltz(u,N,T);
+saveas(gcf,'lab6.chicken.png')
 
-element_stiffness_matrix(t)
-element_mass_matrix(t)
+
+
 
 function [N, T, P] = mygrid(G,w)
 epsAir=8.85e-12;
@@ -63,7 +78,6 @@ elseif G == 2 % Chicken
         muAir*epsAir*ones(1,34)];
 end
 end
-
 
 function plotmygrid(N,T,P)
 
@@ -123,117 +137,127 @@ for j=1:size(T,1)
     n(4,:) = ( n(1,:) + n(2,:) ) / 2;
     n(5,:) = ( n(1,:) + n(3,:) ) / 2;
     n(6,:) = ( n(2,:) + n(3,:) ) / 2;
-    
+
     % Checking if new nodes actually are new
     for k = 4:6
         l = find(Nr(:,1)==n(k,1));
         m = find(Nr(l,2)==n(k,2));
-        
+
         if isempty(m)
             nn = nn +1;
             Nr(nn,:) = n(k,:);
             i(k) = nn;
-        
+
         else
             i(k)=l(m);
         end
     end
     Tr(nt+1,:) = [i(1) i(4) i(5) T(j,4) 0 T(j,6)];
-    Tr(nt+2,:) = [i(4) i(5) i(6) 0 0 0];
+    Tr(nt+2,:) = [i(5) i(4) i(6) 0 0 0];
     Tr(nt+3,:) = [i(6) i(4) i(2) 0 T(j,4) T(j,5)];
     Tr(nt+4,:) = [i(6) i(3) i(5) T(j,5) T(j,6) 0];
-    
+
     Pr(nt+1:nt+4) = P(j);
     nt=nt+4;
 end
 
 end
 
+
 function Se = element_stiffness_matrix(t)
-    x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
-    y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
+x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
+y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
 
-    J = [x_2-x_1 x_3-x_1;
-        y_2-y_1 y_3-y_1];
-    Jd = (-x_1*y_3 -x_2*y_1 + x_2*y_3 + x_1*y_2 + x_3*y_1 - x_3*y_2);
-    %Jd = abs(x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2))
-    gradphi_local = [-1 -1;
-                      1  0 ;
-                      0  1];
-    gradphi_global = gradphi_local/J;
+J = [x_2-x_1 x_3-x_1;
+    y_2-y_1 y_3-y_1];
+Jd = (-x_1*y_3 -x_2*y_1 + x_2*y_3 + x_1*y_2 + x_3*y_1 - x_3*y_2);
+%Jd = abs(x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2))
+gradphi_local = [-1 -1;
+    1  0 ;
+    0  1];
+gradphi_global = gradphi_local/J;
 
-    S = (gradphi_global*gradphi_global') * Jd /2;
+Se = (gradphi_global*gradphi_global') * Jd /2;
 
-    
+
+
+
 end
 
 function Me = element_mass_matrix(t)
-    x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
-    y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
-    
-    Jd = abs(x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2));
-    
-    M = Jd / 24 * [2 1 1;
-                   1 2 1;
-                   1 1 2];
+x_1 = t(1,1); x_2 = t(2,1); x_3 = t(3,1);
+y_1 = t(1,2); y_2 = t(2,2); y_3 = t(3,2);
+
+Jd = x_1 * (y_2 - y_3) + x_2 * (y_3 - y_1) + x_3 * (y_1 - y_2);
+
+Me = Jd / 24 * [2 1 1;
+    1 2 1;
+    1 1 2];
 end
 
 
-
-function [u,K,M]=FEHelmholtz(g,N,T,w,P);
-%% FE solver for Helmholtz equation
-% g -> Dirichlet BC
-% w -> frequency
-% K -> stiffness matrix
-% M -> mass matrix
-
+function [u,S,M]=FEHelmholtz(g,N,T,w,P);
 n=size(T,1);
 m=size(N,1);
-K=sparse(m,m);
+S=sparse(m,m);
 M=sparse(m,m);
-bn=zeros(m,1);
 
 for i=1:n
-  nodes = T(i,1:3);
-  coords = N(noodes,:)
+    nodes = T(i,1:3);
+    coords = N(nodes,:);
 
-  % assembly, do not forget the material constants
-  Ke=elementstiffmatrix(coords);
-  Me=P(i)*elementmassmatrix(coords);
+    % Calculating element matrices
+    Se=element_stiffness_matrix(coords);
+    Me=P(i)*element_mass_matrix(coords);
 
-  K(nodes, nodes) = K(nodes, nodes) + Ke;
-  M(nodes, nodes) = M(nodes, nodes) + Me;
+    % Adding to global matrices
+    S(nodes, nodes) = S(nodes, nodes) + Se;
+    M(nodes, nodes) = M(nodes, nodes) + Me;
 
 end
 
 % Find real boundary nodes
 Idx_bnd=[]; % list of nodes on the real boundary
 for j=1:3
-  % Find the triangle whose j−th edge is a boundary edge
-  TriangleBnd=find(T(:,j+3)==1);
-  % Add the nodes of the boundary edges to the boundary nodes list
-  Idx_bnd=[Idx_bnd;T(TriangleBnd,j);T(TriangleBnd,mod(j,3)+1)];
+    % Find the triangle whose j−th edge is a boundary edge
+    TriangleBnd=find(T(:,j+3)==1);
+    % Add the nodes of the boundary edges to the boundary nodes list
+    Idx_bnd=[Idx_bnd;T(TriangleBnd,j);T(TriangleBnd,mod(j,3)+1)];
 end
 % reomove duplicate entries
 Idx_bnd=unique(Idx_bnd);
 
 % construction of the RHS
-b=zeros(m,1);                                    
-% apply the function g to the nodes in Idx_bnd
-% and put this on the rhs
-% and adapt the matrices M and K accordingely
-% in order to get u=g on the real boundary
+b=zeros(m,1);
+b(Idx_bnd) = g(N(Idx_bnd,1),N(Idx_bnd,2));
+
+% Problem with vectorization with sparce matrix
+% A = (-S+w^2*M);
+% A(Idx_bnd',:)=0;
+% A(Idx_bnd',Idx_bnd)=1;
+
+A = (-S+w^2*M);
+for j = Idx_bnd'
+    A(j,:) = 0;
+    A(j,j) = 1;
+end
 
 % Solution of the linear system
-u=(-K+w^2*M)\b;
+u= A\b;
 
 end
 
-for idx = Idx_bnd'
-    b = b - K(:, idx) * g(N(idx,1), N(idx,2)); % Adjust RHS
-    K(idx, :) = 0; K(:, idx) = 0; % Zero out rows & cols
-    K(idx, idx) = 1; % Set diagonal to 1
-    M(idx, :) = 0; M(:, idx) = 0; % Zero out M rows/cols
-    M(idx, idx) = 1; % Preserve solvability
-    b(idx) = g(N(idx,1), N(idx,2)); % Set known boundary values
+
+function PlotSolutionHelmoltz(u,N,T)
+% Plot real part of u for the triangulation N,T
+
+u = real(u);
+
+for i=1:size(T,1)
+    patch(N(T(i,1:3),1),N(T(i,1:3),2),u(T(i,1:3)));
 end
+
+colorbar;
+
+end
+
